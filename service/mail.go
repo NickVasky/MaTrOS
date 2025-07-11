@@ -26,7 +26,8 @@ func NewMailListernerService(cfg *config.ServiceConfig) (*MailListenerService, e
 	service.cfg = cfg
 
 	opts := &imapclient.Options{}
-	client, err := imapclient.DialTLS("imap.gmail.com:993", opts)
+	url := fmt.Sprintf("%v:%v", service.cfg.Mail.URL, service.cfg.Mail.Port)
+	client, err := imapclient.DialTLS(url, opts)
 	if err != nil {
 		log.Println("IMAP: Failed to connect")
 		return service, err
@@ -90,7 +91,6 @@ func (s *MailListenerService) ListenForMail(ctx context.Context) {
 		for {
 			select {
 			case <-ticker.C:
-				log.Println("tick!")
 				s.fetchMail()
 			case <-ctx.Done():
 				wg.Done()
