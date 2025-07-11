@@ -4,31 +4,26 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"os"
 	"sync"
 	"time"
 
+	"github.com/NickVasky/MaTrOS/config"
 	"github.com/emersion/go-imap/v2"
 	"github.com/emersion/go-imap/v2/imapclient"
-	"github.com/joho/godotenv"
 )
 
 type MailListenerService struct {
-	client          *imapclient.Client
-	pollingInterval time.Duration
+	cfg    *config.ServiceConfig
+	client *imapclient.Client
 }
 
-type credentials struct {
-	username string
-	password string
+type TriggerCriteria struct {
+	Headers []imap.SearchCriteriaHeaderField
 }
 
-type Cache struct {
-	cache map[imap.UID]bool
-}
-
-func NewMailListernerService(pollingInterval time.Duration) (*MailListenerService, error) {
+func NewMailListernerService(cfg *config.ServiceConfig) (*MailListenerService, error) {
 	service := new(MailListenerService)
+	service.cfg = cfg
 
 	opts := &imapclient.Options{}
 	client, err := imapclient.DialTLS("imap.gmail.com:993", opts)
@@ -37,9 +32,7 @@ func NewMailListernerService(pollingInterval time.Duration) (*MailListenerServic
 		return service, err
 	}
 
-	creds := getCredentials()
-
-	if err := client.Login(creds.username, creds.password).Wait(); err != nil {
+	if err := client.Login(service.cfg.Mail.Username, service.cfg.Mail.Password).Wait(); err != nil {
 		log.Println("IMAP: Failed to login")
 		return service, err
 	}
@@ -77,7 +70,7 @@ func NewMailListernerService(pollingInterval time.Duration) (*MailListenerServic
 	log.Println("IMAP: Folder selected")
 
 	service.client = client
-	service.pollingInterval = pollingInterval
+
 	return service, nil
 }
 
@@ -93,7 +86,7 @@ func (s *MailListenerService) ListenForMail(ctx context.Context) {
 
 	wg.Add(1)
 	go func(wg *sync.WaitGroup, mail chan<- int) {
-		ticker := time.NewTicker(s.pollingInterval)
+		ticker := time.NewTicker(s.cfg.Mail.PollingInterval)
 		for {
 			select {
 			case <-ticker.C:
@@ -117,7 +110,8 @@ func (s *MailListenerService) fetchMail() {
 
 	searchCriteria := &imap.SearchCriteria{
 		Header: headers,
-		Since:  time.Now().Add(-24 * time.Hour),
+		Body:   []string{"test", "sub"},
+		Since:  time.Now().Add(-48 * time.Hour),
 	}
 
 	searchOpts := &imap.SearchOptions{
@@ -156,19 +150,5 @@ func (s *MailListenerService) fetchMail() {
 	log.Println(len(msgs2))
 	for _, v := range msgs2 {
 		fmt.Println(v.Envelope)
-	}
-}
-
-func getCredentials() credentials {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
-	}
-	username := os.Getenv("MAIL_USER")
-	password := os.Getenv("MAIL_PASS")
-
-	return credentials{
-		username: username,
-		password: password,
 	}
 }

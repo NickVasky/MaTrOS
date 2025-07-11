@@ -2,17 +2,17 @@ package main
 
 import (
 	"context"
-	"time"
 
+	"github.com/NickVasky/MaTrOS/config"
 	"github.com/NickVasky/MaTrOS/service"
 )
 
 func main() {
-	service, err := service.NewMailListernerService(15 * time.Second)
+	cfg := config.NewConfig()
+	service, err := service.NewMailListernerService(cfg)
 	if err != nil {
 		panic(err)
 	}
-
 	defer service.Stop()
 
 	ctx := context.Background()
