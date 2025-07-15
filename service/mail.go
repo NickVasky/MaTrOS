@@ -8,147 +8,134 @@ import (
 	"time"
 
 	"github.com/NickVasky/MaTrOS/config"
+	"github.com/NickVasky/MaTrOS/mailclient"
 	"github.com/emersion/go-imap/v2"
-	"github.com/emersion/go-imap/v2/imapclient"
 )
 
-type MailListenerService struct {
-	cfg    *config.ServiceConfig
-	client *imapclient.Client
+type ListenerJob struct {
+	TriggerId string
+	Trigger   TriggerYaml
+	MailUID   imap.UID
+}
+
+type mailListenerService struct {
+	cfg      *config.ServiceConfig
+	triggers *TriggersConfigYaml
+	client   *mailclient.MailClient
 }
 
 type TriggerCriteria struct {
 	Headers []imap.SearchCriteriaHeaderField
 }
 
-func NewMailListernerService(cfg *config.ServiceConfig) (*MailListenerService, error) {
-	service := new(MailListenerService)
+func NewMailListernerService(client *mailclient.MailClient, cfg *config.ServiceConfig, triggers *TriggersConfigYaml) (*mailListenerService, error) {
+	service := new(mailListenerService)
 	service.cfg = cfg
-
-	opts := &imapclient.Options{}
-	url := fmt.Sprintf("%v:%v", service.cfg.Mail.URL, service.cfg.Mail.Port)
-	client, err := imapclient.DialTLS(url, opts)
-	if err != nil {
-		log.Println("IMAP: Failed to connect")
-		return service, err
-	}
-
-	if err := client.Login(service.cfg.Mail.Username, service.cfg.Mail.Password).Wait(); err != nil {
-		log.Println("IMAP: Failed to login")
-		return service, err
-	}
-	log.Println("IMAP: Successfully logged in")
-
-	/*
-		listCmd := client.List("", "%", &imap.ListOptions{
-			ReturnStatus: &imap.StatusOptions{
-				NumMessages: true,
-				NumUnseen:   true,
-			},
-		})
-		for {
-			mbox := listCmd.Next()
-			if mbox == nil {
-				break
-			}
-			if mbox.Status != nil {
-				log.Printf("Mailbox %q contains %v messages (%v unseen)", mbox.Mailbox, *mbox.Status.NumMessages, *mbox.Status.NumUnseen)
-			} else {
-				log.Printf("Mailbox %q - Status unavailable", mbox.Mailbox)
-
-			}
-		}
-		if err := listCmd.Close(); err != nil {
-			log.Fatalf("LIST command failed: %v", err)
-		}
-	*/
-	selectOpts := &imap.SelectOptions{ReadOnly: true}
-	_, err = client.Select("INBOX", selectOpts).Wait()
-	if err != nil {
-		log.Println("IMAP: Selection of mailbox is failed")
-		return service, err
-	}
-	log.Println("IMAP: Folder selected")
+	service.triggers = triggers
 
 	service.client = client
 
 	return service, nil
 }
 
-func (s *MailListenerService) Stop() {
-	s.client.Logout().Wait()
-	s.client.Close()
-}
-
-func (s *MailListenerService) ListenForMail(ctx context.Context) {
+func (s *mailListenerService) ListenForMail(ctx context.Context) {
 	wg := &sync.WaitGroup{}
-	mailCh := make(chan int, 10)
+	var bufferSize int = 1
+	if len(s.triggers.Triggers) > 1 {
+		bufferSize = len(s.triggers.Triggers)
+	}
+	mailCh := make(chan ListenerJob, bufferSize)
 	defer close(mailCh)
 
-	wg.Add(1)
-	go func(wg *sync.WaitGroup, mail chan<- int) {
-		ticker := time.NewTicker(s.cfg.Mail.PollingInterval)
+	// Results gathering goroutine
+	go func(ctx context.Context, mail <-chan ListenerJob) {
 		for {
 			select {
-			case <-ticker.C:
-				s.fetchMail()
+			case m := <-mail:
+				fmt.Printf("Got message:\n%v\n", m)
 			case <-ctx.Done():
-				wg.Done()
 				return
 			}
 		}
-	}(wg, mailCh)
+	}(ctx, mailCh)
+
+	// Workers
+	for triggerId, trigger := range s.triggers.Triggers {
+		job := ListenerJob{
+			TriggerId: triggerId,
+			Trigger:   trigger,
+		}
+		wg.Add(1)
+		go func(ctx context.Context, wg *sync.WaitGroup, job ListenerJob) {
+			log.Println("Listener created for trigger: ", job)
+			ticker := time.NewTicker(s.cfg.Mail.PollingInterval)
+			defer ticker.Stop()
+
+			for {
+				select {
+				case <-ticker.C:
+					s.searchMail(job, mailCh)
+				case <-ctx.Done():
+					wg.Done()
+					return
+				}
+			}
+
+		}(ctx, wg, job)
+	}
 
 	wg.Wait()
 }
 
-func (s *MailListenerService) fetchMail() {
-	headers := []imap.SearchCriteriaHeaderField{{
-		Key:   "From",
-		Value: "mirrayletters@gmail.com"},
+func (s *mailListenerService) searchMail(job ListenerJob, result chan<- ListenerJob) {
+	err := s.client.IMAP.Noop().Wait()
+	if err != nil {
+		log.Println(err)
 	}
 
-	searchCriteria := &imap.SearchCriteria{
-		Header: headers,
-		Body:   []string{"test", "sub"},
-		Since:  time.Now().Add(-48 * time.Hour),
-	}
+	searchCriteria := job.Trigger.BuildSearchCriteria()
 
 	searchOpts := &imap.SearchOptions{
 		ReturnAll: true,
 	}
 
-	msgs, err := s.client.UIDSearch(searchCriteria, searchOpts).Wait()
+	msgs, err := s.client.IMAP.UIDSearch(searchCriteria, searchOpts).Wait()
 	if err != nil {
 		log.Println(err)
 	}
-	fmt.Printf("search data: %v\n", *msgs)
 	uids := msgs.AllUIDs()
-	fmt.Printf("len: %v\n", len(uids))
 
-	seqset := new(imap.UIDSet)
-	for _, v := range uids {
-		seqset.AddNum(v)
-		fmt.Println(v)
-	}
-
-	bodySection := &imap.FetchItemBodySection{Specifier: imap.PartSpecifierHeader}
-	fetchOptions := &imap.FetchOptions{
-		UID:         true,
-		Flags:       true,
-		Envelope:    true,
-		BodySection: []*imap.FetchItemBodySection{bodySection},
-	}
-	msgs2, err := s.client.Fetch(*seqset, fetchOptions).Collect()
-	if err != nil {
-		log.Println("Fetch Err: ", err)
-		return
-	}
-	log.Println("Seq: ", seqset)
-
-	log.Println("Printing messages...")
-	log.Println(len(msgs2))
-	for _, v := range msgs2 {
-		fmt.Println(v.Envelope)
+	for _, uid := range uids {
+		job.MailUID = uid
+		result <- job
 	}
 }
+
+// func fetchLetter() {
+// 	var uids []imap.UID
+// 	seqset := new(imap.UIDSet)
+// 	for _, v := range uids {
+// 		seqset.AddNum(v)
+// 		fmt.Println(v)
+// 	}
+
+// 	bodySection := &imap.FetchItemBodySection{Specifier: imap.PartSpecifierHeader}
+// 	fetchOptions := &imap.FetchOptions{
+// 		UID:         true,
+// 		Flags:       true,
+// 		Envelope:    true,
+// 		BodySection: []*imap.FetchItemBodySection{bodySection},
+// 	}
+// 	msgs2, err := s.client.IMAP.Fetch(*seqset, fetchOptions).Collect()
+// 	if err != nil {
+// 		log.Println("Fetch Err: ", err)
+// 		return
+// 	}
+// 	log.Println("Seq: ", seqset)
+
+// 	log.Println("Printing messages...")
+// 	log.Println(len(msgs2))
+// 	for _, v := range msgs2 {
+// 		fmt.Println(v.Envelope)
+// 	}
+// }

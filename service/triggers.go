@@ -3,6 +3,7 @@ package service
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/emersion/go-imap/v2"
 	"gopkg.in/yaml.v3"
@@ -63,7 +64,6 @@ func (t *TriggerYaml) Validate() error {
 func (t *TriggerYaml) BuildSearchCriteria() *imap.SearchCriteria {
 	searchCriteria := new(imap.SearchCriteria)
 
-	searchCriteria.Body = t.Body
 	headers := make([]imap.SearchCriteriaHeaderField, 0)
 	for _, v := range t.Headers {
 		headers = append(headers, imap.SearchCriteriaHeaderField{
@@ -71,7 +71,10 @@ func (t *TriggerYaml) BuildSearchCriteria() *imap.SearchCriteria {
 			Value: v.Value,
 		})
 	}
+
+	searchCriteria.Body = t.Body
 	searchCriteria.Header = headers
+	searchCriteria.Since = time.Now().Add(-48 * time.Hour)
 
 	return searchCriteria
 }

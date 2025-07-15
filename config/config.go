@@ -11,10 +11,10 @@ import (
 )
 
 type ServiceConfig struct {
-	Mail mailConfig
+	Mail MailConfig
 }
 
-type mailConfig struct {
+type MailConfig struct {
 	URL                        string
 	Port                       int
 	Username, Password, Folder string
