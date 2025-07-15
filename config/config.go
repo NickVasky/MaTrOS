@@ -11,14 +11,21 @@ import (
 )
 
 type ServiceConfig struct {
-	Mail MailConfig
+	Mail  MailConfig
+	Kafka KafkaConfig
 }
 
 type MailConfig struct {
 	URL                        string
-	Port                       int
+	Port                       uint
 	Username, Password, Folder string
 	PollingInterval            time.Duration
+}
+
+type KafkaConfig struct {
+	URL   string
+	Port  uint
+	Topic string
 }
 
 func NewConfig() *ServiceConfig {
@@ -40,7 +47,10 @@ func NewConfig() *ServiceConfig {
 	if err != nil {
 		panic(fmt.Errorf("Config loader - Error loading port: %v", err))
 	}
-	cfg.Mail.Port = port
+	if port < 0 {
+		panic(fmt.Errorf("Config loader - Port number should be positive"))
+	}
+	cfg.Mail.Port = uint(port)
 
 	pollingIntervalStr := os.Getenv("MAIL_POLLING_INTERVAL_SEC")
 	pollingInterval, err := strconv.Atoi(pollingIntervalStr)
@@ -53,7 +63,17 @@ func NewConfig() *ServiceConfig {
 	// TBD
 
 	// KAFKA PART
-	// TBD
+	cfg.Kafka.URL = os.Getenv("KAFKA_URL")
+	cfg.Kafka.Topic = os.Getenv("KAFKA_TOPIC")
+	kafkaPortStr := os.Getenv("KAFKA_PORT")
+	kafkaPort, err := strconv.Atoi(kafkaPortStr)
+	if err != nil {
+		panic(fmt.Errorf("Config loader - Error loading Kafka port: %v", err))
+	}
+	if port < 0 {
+		panic(fmt.Errorf("Config loader - Kafka Port number should be positive"))
+	}
+	cfg.Kafka.Port = uint(kafkaPort)
 
 	return cfg
 }

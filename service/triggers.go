@@ -14,16 +14,16 @@ type TriggersConfigYaml struct {
 }
 
 type TriggerYaml struct {
-	BotID     string            `yaml:"bot_id"`
-	ProcessID string            `yaml:"process_id"`
-	Headers   []HeaderFieldYaml `yaml:"headers"`
-	Subject   []string          `yaml:"subject"`
-	Body      []string          `yaml:"body"`
+	BotID     string            `yaml:"bot_id" json:"bot_id"`
+	ProcessID string            `yaml:"process_id" json:"process_id"`
+	Headers   []HeaderFieldYaml `yaml:"headers" json:"headers"`
+	Subject   []string          `yaml:"subject" json:"subject"`
+	Body      []string          `yaml:"body" json:"body"`
 }
 
 type HeaderFieldYaml struct {
-	Key   string `yaml:"key"`
-	Value string `yaml:"value"`
+	Key   string `yaml:"key" json:"key"`
+	Value string `yaml:"value" json:"value"`
 }
 
 func LoadTriggers(path string) *TriggersConfigYaml {

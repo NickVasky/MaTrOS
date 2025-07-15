@@ -2,7 +2,7 @@ package service
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
 	"log"
 	"sync"
 	"time"
@@ -10,28 +10,40 @@ import (
 	"github.com/NickVasky/MaTrOS/config"
 	"github.com/NickVasky/MaTrOS/mailclient"
 	"github.com/emersion/go-imap/v2"
+	"github.com/segmentio/kafka-go"
 )
 
+type Cacher interface {
+	Get(key imap.UID) (interface{}, bool)
+	Set(key imap.UID, value interface{})
+	Delete(key imap.UID)
+	Has(key imap.UID) bool
+}
+
 type ListenerJob struct {
-	TriggerId string
-	Trigger   TriggerYaml
-	MailUID   imap.UID
+	TriggerId string      `json:"trigger_id"`
+	Trigger   TriggerYaml `json:"trigger"`
+	MailUID   imap.UID    `json:"mail_uid"`
 }
 
 type mailListenerService struct {
 	cfg      *config.ServiceConfig
 	triggers *TriggersConfigYaml
 	client   *mailclient.MailClient
+	kafka    *kafka.Writer
+	cache    Cacher
 }
 
 type TriggerCriteria struct {
 	Headers []imap.SearchCriteriaHeaderField
 }
 
-func NewMailListernerService(client *mailclient.MailClient, cfg *config.ServiceConfig, triggers *TriggersConfigYaml) (*mailListenerService, error) {
+func NewMailListernerService(client *mailclient.MailClient, cfg *config.ServiceConfig, triggers *TriggersConfigYaml, kfk *kafka.Writer, cache Cacher) (*mailListenerService, error) {
 	service := new(mailListenerService)
 	service.cfg = cfg
 	service.triggers = triggers
+	service.kafka = kfk
+	service.cache = cache
 
 	service.client = client
 
@@ -48,16 +60,7 @@ func (s *mailListenerService) ListenForMail(ctx context.Context) {
 	defer close(mailCh)
 
 	// Results gathering goroutine
-	go func(ctx context.Context, mail <-chan ListenerJob) {
-		for {
-			select {
-			case m := <-mail:
-				fmt.Printf("Got message:\n%v\n", m)
-			case <-ctx.Done():
-				return
-			}
-		}
-	}(ctx, mailCh)
+	s.listenResults(ctx, mailCh)
 
 	// Workers
 	for triggerId, trigger := range s.triggers.Triggers {
@@ -109,6 +112,62 @@ func (s *mailListenerService) searchMail(job ListenerJob, result chan<- Listener
 		job.MailUID = uid
 		result <- job
 	}
+}
+
+func (s *mailListenerService) listenResults(ctx context.Context, result <-chan ListenerJob) {
+	ticker := time.NewTicker(50 * time.Millisecond)
+	msgBuffer := make([]kafka.Message, 0, 10)
+	go func(ctx context.Context, mail <-chan ListenerJob) {
+		for {
+			select {
+			case <-ticker.C:
+				// send anything
+				if len(msgBuffer) > 0 {
+					log.Println("Timeout for Kafka buffer, sending...")
+					err := s.kafka.WriteMessages(ctx, msgBuffer...) // send buffer
+					if err != nil {
+						log.Println(err)
+						continue
+					}
+					msgBuffer = msgBuffer[:0] // flush buffer
+				}
+
+			case m := <-mail:
+				if s.cache.Has(m.MailUID) {
+					log.Printf("Cache hit for UID: %v\n", m.MailUID)
+					continue
+				}
+				s.cache.Set(m.MailUID, m)
+				msg := prepareMessage(m)
+				msgBuffer = append(msgBuffer, msg)
+				log.Printf("Got message:\n%v\n", m)
+				if len(msgBuffer) >= 10 {
+					log.Println("Kafka buffer is full, sending...")
+					err := s.kafka.WriteMessages(ctx, msgBuffer...) // send buffer
+					if err != nil {
+						log.Println(err)
+						continue
+					}
+					msgBuffer = msgBuffer[:0] // flush buffer
+				}
+
+			case <-ctx.Done():
+				return
+			}
+		}
+	}(ctx, result)
+}
+
+func prepareMessage(job ListenerJob) kafka.Message {
+	var msg kafka.Message
+
+	body, err := json.Marshal(job)
+	if err != nil {
+		log.Println("Marshalling err: ", err)
+	}
+	msg.Value = body
+
+	return msg
 }
 
 // func fetchLetter() {
