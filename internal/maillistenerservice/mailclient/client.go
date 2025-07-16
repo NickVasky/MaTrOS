@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/NickVasky/MaTrOS/config"
+	"github.com/NickVasky/MaTrOS/pkg/config"
 	"github.com/emersion/go-imap/v2"
 	"github.com/emersion/go-imap/v2/imapclient"
 )

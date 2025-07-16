@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/NickVasky/MaTrOS/config"
-	"github.com/NickVasky/MaTrOS/mailclient"
+	"github.com/NickVasky/MaTrOS/internal/maillistenerservice/mailclient"
+	"github.com/NickVasky/MaTrOS/pkg/config"
 	"github.com/emersion/go-imap/v2"
 	"github.com/segmentio/kafka-go"
 )

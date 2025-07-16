@@ -3,7 +3,7 @@ package queue
 import (
 	"fmt"
 
-	"github.com/NickVasky/MaTrOS/config"
+	"github.com/NickVasky/MaTrOS/pkg/config"
 	"github.com/segmentio/kafka-go"
 )
 

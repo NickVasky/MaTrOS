@@ -3,11 +3,11 @@ package main
 import (
 	"context"
 
-	"github.com/NickVasky/MaTrOS/cache"
-	"github.com/NickVasky/MaTrOS/config"
-	"github.com/NickVasky/MaTrOS/mailclient"
-	"github.com/NickVasky/MaTrOS/queue"
-	"github.com/NickVasky/MaTrOS/service"
+	"github.com/NickVasky/MaTrOS/internal/maillistenerservice/cache"
+	"github.com/NickVasky/MaTrOS/internal/maillistenerservice/mailclient"
+	"github.com/NickVasky/MaTrOS/internal/maillistenerservice/service"
+	"github.com/NickVasky/MaTrOS/pkg/config"
+	"github.com/NickVasky/MaTrOS/pkg/queue"
 )
 
 func main() {
