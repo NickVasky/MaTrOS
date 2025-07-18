@@ -3,22 +3,17 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"sync"
 	"time"
 
-	"github.com/NickVasky/MaTrOS/internal/maillistenerservice/mailclient"
+	"github.com/NickVasky/MaTrOS/internal/maillistener/cache"
+	"github.com/NickVasky/MaTrOS/internal/maillistener/mailclient"
 	"github.com/NickVasky/MaTrOS/pkg/config"
 	"github.com/emersion/go-imap/v2"
 	"github.com/segmentio/kafka-go"
 )
-
-type Cacher interface {
-	Get(key imap.UID) (interface{}, bool)
-	Set(key imap.UID, value interface{})
-	Delete(key imap.UID)
-	Has(key imap.UID) bool
-}
 
 type ListenerJob struct {
 	TriggerId string      `json:"trigger_id"`
@@ -27,25 +22,21 @@ type ListenerJob struct {
 }
 
 type mailListenerService struct {
-	cfg      *config.ServiceConfig
+	cfg      *config.MailListenerServiceConfig
 	triggers *TriggersConfigYaml
 	client   *mailclient.MailClient
 	kafka    *kafka.Writer
-	cache    Cacher
+	cache    cache.Cacher
 }
 
-type TriggerCriteria struct {
-	Headers []imap.SearchCriteriaHeaderField
-}
-
-func NewMailListernerService(client *mailclient.MailClient, cfg *config.ServiceConfig, triggers *TriggersConfigYaml, kfk *kafka.Writer, cache Cacher) (*mailListenerService, error) {
+func NewMailListernerService(client *mailclient.MailClient, cfg *config.MailListenerServiceConfig, triggers *TriggersConfigYaml, kfk *kafka.Writer, cache cache.Cacher) (*mailListenerService, error) {
 	service := new(mailListenerService)
+
+	service.client = client
 	service.cfg = cfg
 	service.triggers = triggers
 	service.kafka = kfk
 	service.cache = cache
-
-	service.client = client
 
 	return service, nil
 }
@@ -133,11 +124,22 @@ func (s *mailListenerService) listenResults(ctx context.Context, result <-chan L
 				}
 
 			case m := <-mail:
-				if s.cache.Has(m.MailUID) {
+				key := fmt.Sprintf("mail:%v", m.MailUID)
+				cacheCtx, cacheCancel := context.WithTimeout(ctx, 3*time.Second)
+				defer cacheCancel()
+				hasKey, err := s.cache.Has(cacheCtx, key)
+				if err == nil && hasKey {
 					log.Printf("Cache hit for UID: %v\n", m.MailUID)
 					continue
 				}
-				s.cache.Set(m.MailUID, m)
+				if err != nil {
+					log.Printf("Cache err: %v\n", err)
+				}
+				err = s.cache.Set(cacheCtx, key, nil, s.cfg.Redis.TTL)
+				if err != nil {
+					log.Printf("Cache err: %v\n", err)
+				}
+
 				msg := prepareMessage(m)
 				msgBuffer = append(msgBuffer, msg)
 				log.Printf("Got message:\n%v\n", m)

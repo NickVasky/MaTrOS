@@ -1,3 +1,4 @@
 .env
-/*.yaml
+**/triggers*.yaml
 kafka-persistence
+*.bkp

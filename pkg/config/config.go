@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 	"time"
@@ -10,70 +9,95 @@ import (
 	"github.com/joho/godotenv"
 )
 
-type ServiceConfig struct {
-	Mail  MailConfig
-	Kafka KafkaConfig
+type MailListenerServiceConfig struct {
+	Mail  *MailConfig
+	Kafka *KafkaConfig
+	Redis *RedisConfig
 }
 
 type MailConfig struct {
-	URL                        string
-	Port                       uint
+	Host                       string
 	Username, Password, Folder string
 	PollingInterval            time.Duration
 }
 
-type KafkaConfig struct {
-	URL   string
-	Port  uint
-	Topic string
+type RedisConfig struct {
+	Host           string
+	User, Password string
+	TTL            time.Duration
 }
 
-func NewConfig() *ServiceConfig {
-	err := godotenv.Load()
+type KafkaConfig struct {
+	Host    string
+	Topic   string
+	GroupID string
+}
+
+type envLoader struct {
+	dotEnvPaths []string
+}
+
+func NewEnvLoader(paths []string) *envLoader {
+	c := new(envLoader)
+	c.dotEnvPaths = paths
+
+	err := godotenv.Load(c.dotEnvPaths...)
 	if err != nil {
-		log.Fatal("Error loading .env file")
+		panic("Error loading .env file")
 	}
 
-	cfg := new(ServiceConfig)
+	return c
+}
 
-	// MAIL PART
-	cfg.Mail.Username = os.Getenv("MAIL_USER")
-	cfg.Mail.Password = os.Getenv("MAIL_PASS")
-	cfg.Mail.Folder = os.Getenv("MAIL_FOLDER")
-	cfg.Mail.URL = os.Getenv("MAIL_URL")
+func NewMailConfig(c *envLoader) *MailConfig {
+	cfg := new(MailConfig)
 
-	portStr := os.Getenv("MAIL_PORT")
-	port, err := strconv.Atoi(portStr)
-	if err != nil {
-		panic(fmt.Errorf("Config loader - Error loading port: %v", err))
-	}
-	if port < 0 {
-		panic(fmt.Errorf("Config loader - Port number should be positive"))
-	}
-	cfg.Mail.Port = uint(port)
+	cfg.Host = os.Getenv("MAIL_HOST")
+	cfg.Username = os.Getenv("MAIL_USER")
+	cfg.Password = os.Getenv("MAIL_PASS")
+	cfg.Folder = os.Getenv("MAIL_FOLDER")
 
 	pollingIntervalStr := os.Getenv("MAIL_POLLING_INTERVAL_SEC")
 	pollingInterval, err := strconv.Atoi(pollingIntervalStr)
 	if err != nil {
 		panic(fmt.Errorf("Error during configuration loading: %v", err))
 	}
-	cfg.Mail.PollingInterval = time.Duration(pollingInterval) * time.Second
+	cfg.PollingInterval = time.Duration(pollingInterval) * time.Second
 
-	// REDIS PART
-	// TBD
+	return cfg
+}
 
-	// KAFKA PART
-	cfg.Kafka.URL = os.Getenv("KAFKA_URL")
-	cfg.Kafka.Topic = os.Getenv("KAFKA_TOPIC")
-	kafkaPortStr := os.Getenv("KAFKA_PORT")
-	kafkaPort, err := strconv.Atoi(kafkaPortStr)
+func NewKafkaConfig(c *envLoader) *KafkaConfig {
+	cfg := new(KafkaConfig)
+
+	cfg.Host = os.Getenv("KAFKA_HOST")
+	cfg.Topic = os.Getenv("KAFKA_TOPIC")
+	cfg.GroupID = os.Getenv("KAFKA_CONSUMER_GROUP")
+
+	return cfg
+}
+
+func NewRedisConfig(c *envLoader) *RedisConfig {
+	cfg := new(RedisConfig)
+
+	cfg.Host = os.Getenv("REDIS_HOST")
+	cfg.User = os.Getenv("REDIS_USER")
+	cfg.Password = os.Getenv("REDIS_PASS")
+	ttlHoursStr := os.Getenv("REDIS_TTL_HOURS")
+	ttlHours, err := strconv.Atoi(ttlHoursStr)
 	if err != nil {
-		panic(fmt.Errorf("Config loader - Error loading Kafka port: %v", err))
+		panic(fmt.Errorf("Error during configuration loading: %v", err))
 	}
-	if port < 0 {
-		panic(fmt.Errorf("Config loader - Kafka Port number should be positive"))
-	}
-	cfg.Kafka.Port = uint(kafkaPort)
+	cfg.TTL = time.Duration(ttlHours) * time.Hour
+
+	return cfg
+}
+
+func NewMailListenerServiceConfig(c *envLoader) *MailListenerServiceConfig {
+	cfg := new(MailListenerServiceConfig)
+	cfg.Kafka = NewKafkaConfig(c)
+	cfg.Mail = NewMailConfig(c)
+	cfg.Redis = NewRedisConfig(c)
 
 	return cfg
 }

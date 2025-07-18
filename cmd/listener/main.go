@@ -3,20 +3,25 @@ package main
 import (
 	"context"
 
-	"github.com/NickVasky/MaTrOS/internal/maillistenerservice/cache"
-	"github.com/NickVasky/MaTrOS/internal/maillistenerservice/mailclient"
-	"github.com/NickVasky/MaTrOS/internal/maillistenerservice/service"
+	"github.com/NickVasky/MaTrOS/internal/maillistener/cache"
+	"github.com/NickVasky/MaTrOS/internal/maillistener/mailclient"
+	"github.com/NickVasky/MaTrOS/internal/maillistener/service"
 	"github.com/NickVasky/MaTrOS/pkg/config"
 	"github.com/NickVasky/MaTrOS/pkg/queue"
 )
 
 func main() {
-	cfg := config.NewConfig()
+	el := config.NewEnvLoader([]string{})
+	cfg := config.NewMailListenerServiceConfig(el)
 
-	kfk := queue.NewProducer(&cfg.Kafka)
-	cache := cache.NewInMemoryCache()
+	kfk := queue.NewProducer(cfg.Kafka)
 
-	client, err := mailclient.ConnectToIMAP(&cfg.Mail)
+	cache, err := cache.NewRedisCache(cfg.Redis.Host, cfg.Redis.User, cfg.Redis.Password)
+	if err != nil {
+		panic(err)
+	}
+
+	client, err := mailclient.ConnectToIMAP(cfg.Mail)
 	if err != nil {
 		panic(err)
 	}

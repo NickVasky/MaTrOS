@@ -1,7 +1,6 @@
 package mailclient
 
 import (
-	"fmt"
 	"log"
 
 	"github.com/NickVasky/MaTrOS/pkg/config"
@@ -17,8 +16,8 @@ func ConnectToIMAP(cfg *config.MailConfig) (*MailClient, error) {
 	mailclient := new(MailClient)
 
 	opts := &imapclient.Options{}
-	server_url := fmt.Sprintf("%v:%v", cfg.URL, cfg.Port)
-	client, err := imapclient.DialTLS(server_url, opts)
+
+	client, err := imapclient.DialTLS(cfg.Host, opts)
 	if err != nil {
 		log.Println("IMAP: Failed to connect")
 		return mailclient, err

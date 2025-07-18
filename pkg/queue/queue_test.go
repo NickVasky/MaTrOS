@@ -13,8 +13,7 @@ import (
 
 func TestNewProducer(t *testing.T) {
 	cfg := &config.KafkaConfig{
-		URL:   "localhost",
-		Port:  9094,
+		Host:  "localhost:9094",
 		Topic: "test_topic",
 	}
 	ctx := context.Background()
