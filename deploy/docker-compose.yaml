@@ -29,3 +29,14 @@ services:
       - SERVER_PORT=9000
     networks:
       - matros_service_network
+
+  rediska:
+    image: bitnami/redis:latest
+    networks:
+      - matros_service_network
+    volumes:
+      - ./redis-persistence:/bitnami/redis/data
+    environment:
+      - REDIS_PASSWORD=my_password
+    ports:
+      - 6379:6379

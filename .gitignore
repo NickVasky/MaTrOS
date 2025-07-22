@@ -2,3 +2,4 @@
 **/triggers*.yaml
 kafka-persistence
 *.bkp
+redis-persistence
