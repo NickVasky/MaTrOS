@@ -15,6 +15,10 @@ type MailListenerServiceConfig struct {
 	Redis *RedisConfig
 }
 
+type RunnerServiceConfig struct {
+	Kafka *KafkaConfig
+}
+
 type MailConfig struct {
 	Host                       string
 	Username, Password, Folder string
@@ -49,7 +53,7 @@ func NewEnvLoader(paths []string) *envLoader {
 	return c
 }
 
-func NewMailConfig(c *envLoader) *MailConfig {
+func NewMailConfig(e *envLoader) *MailConfig {
 	cfg := new(MailConfig)
 
 	cfg.Host = os.Getenv("MAIL_HOST")
@@ -67,7 +71,7 @@ func NewMailConfig(c *envLoader) *MailConfig {
 	return cfg
 }
 
-func NewKafkaConfig(c *envLoader) *KafkaConfig {
+func NewKafkaConfig(e *envLoader) *KafkaConfig {
 	cfg := new(KafkaConfig)
 
 	cfg.Host = os.Getenv("KAFKA_HOST")
@@ -77,7 +81,7 @@ func NewKafkaConfig(c *envLoader) *KafkaConfig {
 	return cfg
 }
 
-func NewRedisConfig(c *envLoader) *RedisConfig {
+func NewRedisConfig(e *envLoader) *RedisConfig {
 	cfg := new(RedisConfig)
 
 	cfg.Host = os.Getenv("REDIS_HOST")
@@ -93,11 +97,17 @@ func NewRedisConfig(c *envLoader) *RedisConfig {
 	return cfg
 }
 
-func NewMailListenerServiceConfig(c *envLoader) *MailListenerServiceConfig {
+func NewMailListenerServiceConfig(e *envLoader) *MailListenerServiceConfig {
 	cfg := new(MailListenerServiceConfig)
-	cfg.Kafka = NewKafkaConfig(c)
-	cfg.Mail = NewMailConfig(c)
-	cfg.Redis = NewRedisConfig(c)
+	cfg.Kafka = NewKafkaConfig(e)
+	cfg.Mail = NewMailConfig(e)
+	cfg.Redis = NewRedisConfig(e)
 
+	return cfg
+}
+
+func NewRunnerServiceConfig(e *envLoader) *RunnerServiceConfig {
+	cfg := new(RunnerServiceConfig)
+	cfg.Kafka = NewKafkaConfig(e)
 	return cfg
 }

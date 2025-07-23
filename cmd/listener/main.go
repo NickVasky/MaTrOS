@@ -7,6 +7,7 @@ import (
 	"github.com/NickVasky/MaTrOS/internal/maillistener/mailclient"
 	"github.com/NickVasky/MaTrOS/internal/maillistener/service"
 	"github.com/NickVasky/MaTrOS/pkg/config"
+	"github.com/NickVasky/MaTrOS/pkg/job"
 	"github.com/NickVasky/MaTrOS/pkg/queue"
 )
 
@@ -27,7 +28,7 @@ func main() {
 	}
 	defer client.Stop()
 
-	triggers := service.LoadTriggers("triggers.yaml")
+	triggers := job.LoadTriggers("triggers.yaml")
 
 	service, err := service.NewMailListernerService(client, cfg, triggers, kfk, cache)
 	if err != nil {

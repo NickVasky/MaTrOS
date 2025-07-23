@@ -11,25 +11,20 @@ import (
 	"github.com/NickVasky/MaTrOS/internal/maillistener/cache"
 	"github.com/NickVasky/MaTrOS/internal/maillistener/mailclient"
 	"github.com/NickVasky/MaTrOS/pkg/config"
+	"github.com/NickVasky/MaTrOS/pkg/job"
 	"github.com/emersion/go-imap/v2"
 	"github.com/segmentio/kafka-go"
 )
 
-type ListenerJob struct {
-	TriggerId string      `json:"trigger_id"`
-	Trigger   TriggerYaml `json:"trigger"`
-	MailUID   imap.UID    `json:"mail_uid"`
-}
-
 type mailListenerService struct {
 	cfg      *config.MailListenerServiceConfig
-	triggers *TriggersConfigYaml
+	triggers *job.TriggersConfigYaml
 	client   *mailclient.MailClient
 	kafka    *kafka.Writer
 	cache    cache.Cacher
 }
 
-func NewMailListernerService(client *mailclient.MailClient, cfg *config.MailListenerServiceConfig, triggers *TriggersConfigYaml, kfk *kafka.Writer, cache cache.Cacher) (*mailListenerService, error) {
+func NewMailListernerService(client *mailclient.MailClient, cfg *config.MailListenerServiceConfig, triggers *job.TriggersConfigYaml, kfk *kafka.Writer, cache cache.Cacher) (*mailListenerService, error) {
 	service := new(mailListenerService)
 
 	service.client = client
@@ -47,7 +42,7 @@ func (s *mailListenerService) ListenForMail(ctx context.Context) {
 	if len(s.triggers.Triggers) > 1 {
 		bufferSize = len(s.triggers.Triggers)
 	}
-	mailCh := make(chan ListenerJob, bufferSize)
+	mailCh := make(chan job.Job, bufferSize)
 	defer close(mailCh)
 
 	// Results gathering goroutine
@@ -55,33 +50,33 @@ func (s *mailListenerService) ListenForMail(ctx context.Context) {
 
 	// Workers
 	for triggerId, trigger := range s.triggers.Triggers {
-		job := ListenerJob{
+		j := job.Job{
 			TriggerId: triggerId,
 			Trigger:   trigger,
 		}
 		wg.Add(1)
-		go func(ctx context.Context, wg *sync.WaitGroup, job ListenerJob) {
-			log.Println("Listener created for trigger: ", job)
+		go func(ctx context.Context, wg *sync.WaitGroup, j job.Job) {
+			log.Println("Listener created for trigger: ", j)
 			ticker := time.NewTicker(s.cfg.Mail.PollingInterval)
 			defer ticker.Stop()
 
 			for {
 				select {
 				case <-ticker.C:
-					s.searchMail(job, mailCh)
+					s.searchMail(j, mailCh)
 				case <-ctx.Done():
 					wg.Done()
 					return
 				}
 			}
 
-		}(ctx, wg, job)
+		}(ctx, wg, j)
 	}
 
 	wg.Wait()
 }
 
-func (s *mailListenerService) searchMail(job ListenerJob, result chan<- ListenerJob) {
+func (s *mailListenerService) searchMail(job job.Job, result chan<- job.Job) {
 	err := s.client.IMAP.Noop().Wait()
 	if err != nil {
 		log.Println(err)
@@ -105,10 +100,10 @@ func (s *mailListenerService) searchMail(job ListenerJob, result chan<- Listener
 	}
 }
 
-func (s *mailListenerService) listenResults(ctx context.Context, result <-chan ListenerJob) {
+func (s *mailListenerService) listenResults(ctx context.Context, result <-chan job.Job) {
 	ticker := time.NewTicker(50 * time.Millisecond)
 	msgBuffer := make([]kafka.Message, 0, 10)
-	go func(ctx context.Context, mail <-chan ListenerJob) {
+	go func(ctx context.Context, mail <-chan job.Job) {
 		for {
 			select {
 			case <-ticker.C:
@@ -160,7 +155,7 @@ func (s *mailListenerService) listenResults(ctx context.Context, result <-chan L
 	}(ctx, result)
 }
 
-func prepareMessage(job ListenerJob) kafka.Message {
+func prepareMessage(job job.Job) kafka.Message {
 	var msg kafka.Message
 
 	body, err := json.Marshal(job)
