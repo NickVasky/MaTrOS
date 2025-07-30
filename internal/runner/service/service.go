@@ -27,12 +27,12 @@ func (s *RunnerService) Serve() {
 	wg := &sync.WaitGroup{}
 	msgs := make(chan job.Job, 10)
 
-	wg.Add(1)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	// listen for kafka
-	go func(wg *sync.WaitGroup, ctx context.Context, msgs chan<- job.Job) {
+	wg.Add(1)
+	go func(ctx context.Context, wg *sync.WaitGroup, msgs chan<- job.Job) {
 		defer wg.Done()
 		for {
 			msg, err := s.kafka.ReadMessage(ctx)
@@ -52,25 +52,28 @@ func (s *RunnerService) Serve() {
 			}
 			msgs <- job
 		}
-	}(wg, ctx, msgs)
+	}(ctx, wg, msgs)
 
-	go func(ctx context.Context, msgs <-chan job.Job) {
+	// process job
+	wg.Add(1)
+	go func(ctx context.Context, wg *sync.WaitGroup, msgs <-chan job.Job) {
+		defer wg.Done()
 		for {
 			select {
 			case <-ctx.Done():
 				log.Println("Queue reader shutdown")
 				return
 			case msg := <-msgs:
-				runJob(msg)
+				runJob(ctx, msg)
 			}
 		}
 
-	}(ctx, msgs)
+	}(ctx, wg, msgs)
 
 	wg.Wait()
 }
 
-func runJob(j job.Job) {
+func runJob(ctx context.Context, j job.Job) {
 	// it should run jobs via api (http.Client)
 	// TBD
 }
