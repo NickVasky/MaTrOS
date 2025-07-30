@@ -42,7 +42,7 @@ func TestAccount(t *testing.T) {
 
 }
 
-func TestGetProject(t *testing.T) {
+func TestGetProjects(t *testing.T) {
 	envs, err := loadEnvs()
 	if err != nil {
 		t.Error(err)
@@ -58,4 +58,39 @@ func TestGetProject(t *testing.T) {
 		t.Errorf("GetProjects() err: %v", err)
 	}
 	log.Println(projects)
+}
+
+func TestGetRobots(t *testing.T) {
+	envs, err := loadEnvs()
+	if err != nil {
+		t.Error(err)
+	}
+
+	bot, err := NewBotApiClient(envs["TEST_HOST"], "https", envs["TEST_USER"], envs["TEST_PASS"], Standard)
+
+	if err != nil {
+		t.Errorf("PostAccount() err: %v", err)
+	}
+	robots, err := bot.GetRobots()
+	if err != nil {
+		t.Errorf("GetRobots() err: %v", err)
+	}
+	log.Println(robots)
+}
+
+func TestPutRobotStartAsync(t *testing.T) {
+	envs, err := loadEnvs()
+	if err != nil {
+		t.Error(err)
+	}
+
+	bot, err := NewBotApiClient(envs["TEST_HOST"], "https", envs["TEST_USER"], envs["TEST_PASS"], Standard)
+
+	if err != nil {
+		t.Errorf("PostAccount() err: %v", err)
+	}
+	err = bot.PutRobotStartAsync(1, 1)
+	if err != nil {
+		t.Errorf("PutRobotStartAsync() err: %v", err)
+	}
 }

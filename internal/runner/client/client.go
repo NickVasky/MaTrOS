@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"strconv"
 	"time"
 )
 
@@ -43,6 +44,13 @@ type projectInfo struct {
 	Description string `json:"description"`
 }
 
+type robotInfo struct {
+	ID               uint        `json:"id"`
+	Name             string      `json:"name"`
+	DeploymentStatus uint        `json:"deploymentStatus"`
+	DeploymentError  interface{} `json:"deploymentError"` // I have no idea what it is, so it's an interface for now
+}
+
 func NewBotApiClient(host string, urlSchema string, username string, password string, robotEdition RobotEdition) (*BotApiClient, error) {
 	botApiClient := new(BotApiClient)
 
@@ -70,7 +78,7 @@ func NewBotApiClient(host string, urlSchema string, username string, password st
 func (b *BotApiClient) postAccount(username string, password string, robotEdition RobotEdition) (string, error) {
 	var token string
 
-	url := url.URL{
+	reqURL := url.URL{
 		Scheme: b.urlSchema,
 		Host:   b.host,
 		Path:   path.Join("api", "Account"),
@@ -87,7 +95,7 @@ func (b *BotApiClient) postAccount(username string, password string, robotEditio
 	}
 
 	bodyBytes := bytes.NewReader(accountJson)
-	response, err := b.client.Post(url.String(), "application/json", bodyBytes)
+	response, err := b.client.Post(reqURL.String(), "application/json", bodyBytes)
 	if err != nil {
 		return token, err
 	}
@@ -113,13 +121,13 @@ func (b *BotApiClient) postAccount(username string, password string, robotEditio
 
 func (b *BotApiClient) GetProjects() ([]projectInfo, error) {
 	projects := make([]projectInfo, 0)
-	url := &url.URL{
+	reqURL := &url.URL{
 		Scheme: b.urlSchema,
 		Host:   b.host,
 		Path:   path.Join("api", "RpaProjects", "v2"),
 	}
 
-	req, err := http.NewRequest("GET", url.String(), nil)
+	req, err := http.NewRequest("GET", reqURL.String(), nil)
 	if err != nil {
 		return projects, err
 	}
@@ -133,7 +141,7 @@ func (b *BotApiClient) GetProjects() ([]projectInfo, error) {
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		return projects, fmt.Errorf("'%v: %v' request error. Code: %v", req.Method, url.Path, response.StatusCode)
+		return projects, fmt.Errorf("'%v: %v' request error. Code: %v", req.Method, reqURL.Path, response.StatusCode)
 	}
 
 	respBodyBytes, err := io.ReadAll(response.Body)
@@ -147,4 +155,74 @@ func (b *BotApiClient) GetProjects() ([]projectInfo, error) {
 	}
 
 	return projects, nil
+}
+
+func (b *BotApiClient) GetRobots() ([]robotInfo, error) {
+	robots := make([]robotInfo, 0)
+	reqURL := &url.URL{
+		Scheme: b.urlSchema,
+		Host:   b.host,
+		Path:   path.Join("api", "Robots"),
+	}
+
+	req, err := http.NewRequest("GET", reqURL.String(), nil)
+	if err != nil {
+		return robots, err
+	}
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %v", b.apiToken))
+	req.Header.Set("Accept", "text/plain")
+
+	response, err := b.client.Do(req)
+	if err != nil {
+		return robots, err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		return robots, fmt.Errorf("'%v: %v' request error. Code: %v", req.Method, reqURL.Path, response.StatusCode)
+	}
+
+	respBodyBytes, err := io.ReadAll(response.Body)
+	if err != nil {
+		return robots, err
+	}
+
+	err = json.Unmarshal(respBodyBytes, &robots)
+	if err != nil {
+		return robots, err
+	}
+
+	return robots, nil
+}
+
+func (b *BotApiClient) PutRobotStartAsync(robotID uint, projectID uint) error {
+	reqURL := &url.URL{
+		Scheme: b.urlSchema,
+		Host:   b.host,
+		Path:   path.Join("api", "Robots", strconv.FormatUint(uint64(robotID), 10), "StartAsync"),
+	}
+
+	queryParams := url.Values{}
+	queryParams.Set("projectId", strconv.FormatUint(uint64(projectID), 10))
+
+	reqURL.RawQuery = queryParams.Encode()
+
+	req, err := http.NewRequest("PUT", reqURL.String(), nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %v", b.apiToken))
+	req.Header.Set("Accept", "*/*")
+
+	response, err := b.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusNoContent {
+		return fmt.Errorf("'%v: %v' request error. Code: %v", req.Method, reqURL.Path, response.StatusCode)
+	}
+
+	return nil
 }
