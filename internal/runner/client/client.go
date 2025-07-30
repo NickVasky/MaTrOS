@@ -34,7 +34,7 @@ type accountRequest struct {
 	RobotEdition RobotEdition `json:"robotEdition,omitempty"`
 }
 
-type AccountResponse struct {
+type accountResponse struct {
 	Token string `json:"token"`
 }
 
@@ -109,7 +109,7 @@ func (b *BotApiClient) postAccount(username string, password string, robotEditio
 	if err != nil {
 		return token, err
 	}
-	var respBody AccountResponse
+	var respBody accountResponse
 	err = json.Unmarshal(respBodyBytes, &respBody)
 	if err != nil {
 		return token, err
@@ -119,7 +119,7 @@ func (b *BotApiClient) postAccount(username string, password string, robotEditio
 	return token, nil
 }
 
-func (b *BotApiClient) GetProjects() ([]projectInfo, error) {
+func (b *BotApiClient) GetProjects() (projectInfoSlice, error) {
 	projects := make([]projectInfo, 0)
 	reqURL := &url.URL{
 		Scheme: b.urlSchema,
@@ -157,7 +157,7 @@ func (b *BotApiClient) GetProjects() ([]projectInfo, error) {
 	return projects, nil
 }
 
-func (b *BotApiClient) GetRobots() ([]robotInfo, error) {
+func (b *BotApiClient) GetRobots() (robotInfoSlice, error) {
 	robots := make([]robotInfo, 0)
 	reqURL := &url.URL{
 		Scheme: b.urlSchema,
