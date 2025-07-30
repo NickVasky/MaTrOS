@@ -1,67 +1,61 @@
 package client
 
 import (
-	"crypto/tls"
+	"fmt"
 	"log"
-	"net/http"
 	"os"
-	"reflect"
 	"testing"
-	"time"
 
 	"github.com/joho/godotenv"
 )
 
-func TestNewBotApiClient(t *testing.T) {
-	type args struct {
-		Host      string
-		URLSchema string
+func loadEnvs() (map[string]string, error) {
+	envs := make(map[string]string)
+	err := godotenv.Load("test.env")
+	if err != nil {
+		return envs, err
 	}
-	tests := []struct {
-		name string
-		args args
-		want *BotApiClient
-	}{
-		{
-			name: "Test 1",
-			args: args{Host: "localhost", URLSchema: "https"},
-			want: &BotApiClient{
-				Client:    &http.Client{Timeout: time.Second * 10, Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}},
-				URLSchema: "https",
-				Host:      "localhost",
-			},
-		},
+
+	envs = map[string]string{"TEST_HOST": "", "TEST_USER": "", "TEST_PASS": ""}
+	for k, _ := range envs {
+		envValue := os.Getenv(k)
+		if envValue == "" {
+			return envs, fmt.Errorf("Env '%v' is empty", k)
+		}
+		envs[k] = envValue
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := NewBotApiClient(tt.args.Host, tt.args.URLSchema); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("NewBotApiClient() = %v, want %v", got, tt.want)
-			}
-		})
-	}
+	return envs, nil
 }
 
 func TestAccount(t *testing.T) {
-	err := godotenv.Load("test.env")
+	envs, err := loadEnvs()
 	if err != nil {
 		t.Error(err)
 	}
 
-	envs := map[string]string{"TEST_HOST": "", "TEST_USER": "", "TEST_PASS": ""}
-	for k, _ := range envs {
-		envValue := os.Getenv(k)
-		if envValue == "" {
-			t.Errorf("Env '%v' is empty", k)
-		}
-		envs[k] = envValue
+	bot, err := NewBotApiClient(envs["TEST_HOST"], "https", envs["TEST_USER"], envs["TEST_PASS"], Standard)
+
+	if err != nil {
+		t.Errorf("PostAccount() err: %v", err)
+	}
+	log.Println("Got token:", bot.apiToken)
+
+}
+
+func TestGetProject(t *testing.T) {
+	envs, err := loadEnvs()
+	if err != nil {
+		t.Error(err)
 	}
 
-	bot := NewBotApiClient(envs["TEST_HOST"], "https")
-	t.Run("Test1", func(t *testing.T) {
-		token, err := bot.PostAccount(envs["TEST_USER"], envs["TEST_PASS"], 2)
-		if err != nil {
-			t.Errorf("PostAccount() err: %v", err)
-		}
-		log.Println("Got token:", token)
-	})
+	bot, err := NewBotApiClient(envs["TEST_HOST"], "https", envs["TEST_USER"], envs["TEST_PASS"], Standard)
+
+	if err != nil {
+		t.Errorf("PostAccount() err: %v", err)
+	}
+	projects, err := bot.GetProjects()
+	if err != nil {
+		t.Errorf("GetProjects() err: %v", err)
+	}
+	log.Println(projects)
 }

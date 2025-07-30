@@ -21,12 +21,13 @@ const (
 )
 
 type BotApiClient struct {
-	Client    *http.Client
-	URLSchema string
-	Host      string
+	client    *http.Client
+	urlSchema string
+	host      string
+	apiToken  string
 }
 
-type AccountRequest struct {
+type accountRequest struct {
 	Username     string       `json:"userName"`
 	Password     string       `json:"password"`
 	RobotEdition RobotEdition `json:"robotEdition,omitempty"`
@@ -36,7 +37,13 @@ type AccountResponse struct {
 	Token string `json:"token"`
 }
 
-func NewBotApiClient(Host string, URLSchema string) *BotApiClient {
+type projectInfo struct {
+	ID          uint   `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
+func NewBotApiClient(host string, urlSchema string, username string, password string, robotEdition RobotEdition) (*BotApiClient, error) {
 	botApiClient := new(BotApiClient)
 
 	tr := &http.Transport{
@@ -47,24 +54,30 @@ func NewBotApiClient(Host string, URLSchema string) *BotApiClient {
 		Transport: tr,
 	}
 
-	botApiClient.Client = c
-	botApiClient.Host = Host
-	botApiClient.URLSchema = URLSchema
+	botApiClient.client = c
+	botApiClient.host = host
+	botApiClient.urlSchema = urlSchema
 
-	return botApiClient
+	token, err := botApiClient.postAccount(username, password, robotEdition)
+	if err != nil {
+		return botApiClient, err
+	}
+	botApiClient.apiToken = token
+
+	return botApiClient, nil
 }
 
-func (b *BotApiClient) PostAccount(user string, pass string, robotEdition RobotEdition) (string, error) {
+func (b *BotApiClient) postAccount(username string, password string, robotEdition RobotEdition) (string, error) {
 	var token string
 
-	u := url.URL{
-		Scheme: b.URLSchema,
-		Host:   b.Host,
+	url := url.URL{
+		Scheme: b.urlSchema,
+		Host:   b.host,
 		Path:   path.Join("api", "Account"),
 	}
-	a := AccountRequest{
-		Username:     user,
-		Password:     pass,
+	a := accountRequest{
+		Username:     username,
+		Password:     password,
 		RobotEdition: robotEdition,
 	}
 
@@ -74,7 +87,7 @@ func (b *BotApiClient) PostAccount(user string, pass string, robotEdition RobotE
 	}
 
 	bodyBytes := bytes.NewReader(accountJson)
-	response, err := b.Client.Post(u.String(), "application/json", bodyBytes)
+	response, err := b.client.Post(url.String(), "application/json", bodyBytes)
 	if err != nil {
 		return token, err
 	}
@@ -93,7 +106,45 @@ func (b *BotApiClient) PostAccount(user string, pass string, robotEdition RobotE
 	if err != nil {
 		return token, err
 	}
-	token = fmt.Sprintf("Bearer: %v", respBody.Token)
+	token = respBody.Token
 
 	return token, nil
+}
+
+func (b *BotApiClient) GetProjects() ([]projectInfo, error) {
+	projects := make([]projectInfo, 0)
+	url := &url.URL{
+		Scheme: b.urlSchema,
+		Host:   b.host,
+		Path:   path.Join("api", "RpaProjects", "v2"),
+	}
+
+	req, err := http.NewRequest("GET", url.String(), nil)
+	if err != nil {
+		return projects, err
+	}
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %v", b.apiToken))
+	req.Header.Set("Accept", "text/plain")
+
+	response, err := b.client.Do(req)
+	if err != nil {
+		return projects, err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		return projects, fmt.Errorf("'%v: %v' request error. Code: %v", req.Method, url.Path, response.StatusCode)
+	}
+
+	respBodyBytes, err := io.ReadAll(response.Body)
+	if err != nil {
+		return projects, err
+	}
+
+	err = json.Unmarshal(respBodyBytes, &projects)
+	if err != nil {
+		return projects, err
+	}
+
+	return projects, nil
 }
