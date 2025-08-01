@@ -3,13 +3,13 @@ module github.com/NickVasky/MaTrOS/listener
 go 1.24.4
 
 require (
-	github.com/NickVasky/MaTrOS/shared v0.0.0-20250730164218-3be03c6c11df
+	github.com/NickVasky/MaTrOS/shared v0.1.0
 	github.com/emersion/go-imap/v2 v2.0.0-beta.5
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/segmentio/kafka-go v0.4.48
 )
 
-replace github.com/NickVasky/MaTrOS/shared => ../shared
+//replace github.com/NickVasky/MaTrOS/shared => ../shared
 
 require (
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect

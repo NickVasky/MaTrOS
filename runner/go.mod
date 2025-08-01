@@ -3,12 +3,12 @@ module github.com/NickVasky/MaTrOS/runner
 go 1.24.4
 
 require (
-	github.com/NickVasky/MaTrOS/shared v0.0.0-20250730164218-3be03c6c11df
+	github.com/NickVasky/MaTrOS/shared v0.1.0
 	github.com/joho/godotenv v1.5.1
 	github.com/segmentio/kafka-go v0.4.48
 )
 
-replace github.com/NickVasky/MaTrOS/shared => ../shared
+//replace github.com/NickVasky/MaTrOS/shared => ../shared
 
 require (
 	github.com/emersion/go-imap/v2 v2.0.0-beta.5 // indirect
