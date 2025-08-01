@@ -11,6 +11,8 @@ import (
 	"path"
 	"strconv"
 	"time"
+
+	"github.com/NickVasky/MaTrOS/shared/config"
 )
 
 type RobotEdition uint
@@ -51,7 +53,7 @@ type robotInfo struct {
 	DeploymentError  interface{} `json:"deploymentError"` // I have no idea what it is, so it's an interface for now
 }
 
-func NewBotApiClient(host string, urlSchema string, username string, password string, robotEdition RobotEdition) (*BotApiClient, error) {
+func NewBotApiClient(cfg *config.OrchConfig) (*BotApiClient, error) {
 	botApiClient := new(BotApiClient)
 
 	tr := &http.Transport{
@@ -63,10 +65,10 @@ func NewBotApiClient(host string, urlSchema string, username string, password st
 	}
 
 	botApiClient.client = c
-	botApiClient.host = host
-	botApiClient.urlSchema = urlSchema
+	botApiClient.host = cfg.Host
+	botApiClient.urlSchema = cfg.URLSchema
 
-	token, err := botApiClient.postAccount(username, password, robotEdition)
+	token, err := botApiClient.postAccount(cfg.User, cfg.Password, RobotEdition(cfg.RobotEdition))
 	if err != nil {
 		return botApiClient, err
 	}

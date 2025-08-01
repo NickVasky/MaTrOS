@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/NickVasky/MaTrOS/pkg/config"
+	"github.com/NickVasky/MaTrOS/shared/config"
 	"github.com/segmentio/kafka-go"
 )
 

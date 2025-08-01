@@ -8,10 +8,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/NickVasky/MaTrOS/internal/maillistener/cache"
-	"github.com/NickVasky/MaTrOS/internal/maillistener/mailclient"
-	"github.com/NickVasky/MaTrOS/pkg/config"
-	"github.com/NickVasky/MaTrOS/pkg/job"
+	"github.com/NickVasky/MaTrOS/listener/cache"
+	"github.com/NickVasky/MaTrOS/listener/mailclient"
+	"github.com/NickVasky/MaTrOS/shared/config"
+	"github.com/NickVasky/MaTrOS/shared/job"
 	"github.com/emersion/go-imap/v2"
 	"github.com/segmentio/kafka-go"
 )

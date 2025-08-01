@@ -6,34 +6,43 @@ import (
 	"os"
 	"testing"
 
+	"github.com/NickVasky/MaTrOS/shared/config"
 	"github.com/joho/godotenv"
 )
 
-func loadEnvs() (map[string]string, error) {
+func loadEnvs() (*config.OrchConfig, error) {
+	cfg := new(config.OrchConfig)
 	envs := make(map[string]string)
 	err := godotenv.Load("test.env")
 	if err != nil {
-		return envs, err
+		return cfg, err
 	}
 
 	envs = map[string]string{"TEST_HOST": "", "TEST_USER": "", "TEST_PASS": ""}
 	for k, _ := range envs {
 		envValue := os.Getenv(k)
 		if envValue == "" {
-			return envs, fmt.Errorf("Env '%v' is empty", k)
+			return cfg, fmt.Errorf("Env '%v' is empty", k)
 		}
 		envs[k] = envValue
 	}
-	return envs, nil
+
+	cfg.Host = envs["TEST_HOST"]
+	cfg.Password = envs["TEST_PASS"]
+	cfg.User = envs["TEST_USER"]
+	cfg.URLSchema = "https"
+	cfg.RobotEdition = 2
+
+	return cfg, nil
 }
 
 func TestAccount(t *testing.T) {
-	envs, err := loadEnvs()
+	cfg, err := loadEnvs()
 	if err != nil {
 		t.Error(err)
 	}
 
-	bot, err := NewBotApiClient(envs["TEST_HOST"], "https", envs["TEST_USER"], envs["TEST_PASS"], Standard)
+	bot, err := NewBotApiClient(cfg)
 
 	if err != nil {
 		t.Errorf("PostAccount() err: %v", err)
@@ -43,12 +52,12 @@ func TestAccount(t *testing.T) {
 }
 
 func TestGetProjects(t *testing.T) {
-	envs, err := loadEnvs()
+	cfg, err := loadEnvs()
 	if err != nil {
 		t.Error(err)
 	}
 
-	bot, err := NewBotApiClient(envs["TEST_HOST"], "https", envs["TEST_USER"], envs["TEST_PASS"], Standard)
+	bot, err := NewBotApiClient(cfg)
 
 	if err != nil {
 		t.Errorf("PostAccount() err: %v", err)
@@ -61,12 +70,12 @@ func TestGetProjects(t *testing.T) {
 }
 
 func TestGetRobots(t *testing.T) {
-	envs, err := loadEnvs()
+	cfg, err := loadEnvs()
 	if err != nil {
 		t.Error(err)
 	}
 
-	bot, err := NewBotApiClient(envs["TEST_HOST"], "https", envs["TEST_USER"], envs["TEST_PASS"], Standard)
+	bot, err := NewBotApiClient(cfg)
 
 	if err != nil {
 		t.Errorf("PostAccount() err: %v", err)
@@ -79,12 +88,12 @@ func TestGetRobots(t *testing.T) {
 }
 
 func TestPutRobotStartAsync(t *testing.T) {
-	envs, err := loadEnvs()
+	cfg, err := loadEnvs()
 	if err != nil {
 		t.Error(err)
 	}
 
-	bot, err := NewBotApiClient(envs["TEST_HOST"], "https", envs["TEST_USER"], envs["TEST_PASS"], Standard)
+	bot, err := NewBotApiClient(cfg)
 
 	if err != nil {
 		t.Errorf("PostAccount() err: %v", err)

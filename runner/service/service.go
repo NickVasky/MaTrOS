@@ -6,9 +6,9 @@ import (
 	"log"
 	"sync"
 
-	"github.com/NickVasky/MaTrOS/internal/runner/client"
-	"github.com/NickVasky/MaTrOS/pkg/config"
-	"github.com/NickVasky/MaTrOS/pkg/job"
+	"github.com/NickVasky/MaTrOS/runner/client"
+	"github.com/NickVasky/MaTrOS/shared/config"
+	"github.com/NickVasky/MaTrOS/shared/job"
 	"github.com/segmentio/kafka-go"
 )
 
@@ -26,11 +26,11 @@ func NewRunnerService(cfg *config.RunnerServiceConfig, kfk *kafka.Reader, api *c
 	return service
 }
 
-func (s *RunnerService) Serve() {
+func (s *RunnerService) Serve(ctx context.Context) {
 	wg := &sync.WaitGroup{}
 	msgs := make(chan job.Job, 10)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctxWithCancel, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	// listen for kafka
@@ -55,7 +55,7 @@ func (s *RunnerService) Serve() {
 			}
 			msgs <- job
 		}
-	}(ctx, wg, msgs)
+	}(ctxWithCancel, wg, msgs)
 
 	// process job
 	wg.Add(1)
@@ -75,7 +75,7 @@ func (s *RunnerService) Serve() {
 			}
 		}
 
-	}(ctx, wg, msgs)
+	}(ctxWithCancel, wg, msgs)
 
 	wg.Wait()
 }

@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
 	"time"
@@ -17,6 +18,7 @@ type MailListenerServiceConfig struct {
 
 type RunnerServiceConfig struct {
 	Kafka *KafkaConfig
+	Orch  *OrchConfig
 }
 
 type MailConfig struct {
@@ -35,6 +37,14 @@ type KafkaConfig struct {
 	Host    string
 	Topic   string
 	GroupID string
+}
+
+type OrchConfig struct {
+	URLSchema    string
+	Host         string
+	User         string
+	Password     string
+	RobotEdition uint
 }
 
 type envLoader struct {
@@ -64,7 +74,7 @@ func NewMailConfig(e *envLoader) *MailConfig {
 	pollingIntervalStr := os.Getenv("MAIL_POLLING_INTERVAL_SEC")
 	pollingInterval, err := strconv.Atoi(pollingIntervalStr)
 	if err != nil {
-		panic(fmt.Errorf("Error during configuration loading: %v", err))
+		panic(fmt.Errorf("Error during Mail cfg loading: %v", err))
 	}
 	cfg.PollingInterval = time.Duration(pollingInterval) * time.Second
 
@@ -90,9 +100,38 @@ func NewRedisConfig(e *envLoader) *RedisConfig {
 	ttlHoursStr := os.Getenv("REDIS_TTL_HOURS")
 	ttlHours, err := strconv.Atoi(ttlHoursStr)
 	if err != nil {
-		panic(fmt.Errorf("Error during configuration loading: %v", err))
+		panic(fmt.Errorf("Error during Redis cfg loading: %v", err))
 	}
 	cfg.TTL = time.Duration(ttlHours) * time.Hour
+
+	return cfg
+}
+
+func NewOrchConfig(e *envLoader) *OrchConfig {
+	cfg := new(OrchConfig)
+
+	hostString := os.Getenv("ORCH_HOST")
+	hostUrl, err := url.Parse(hostString)
+	if err != nil {
+		panic(fmt.Errorf("Error during Orch cfg loading: %v", err))
+	}
+	cfg.Host = hostUrl.Host
+	cfg.URLSchema = hostUrl.Scheme
+
+	cfg.User = os.Getenv("ORCH_USER")
+	cfg.Password = os.Getenv("ORCH_PASS")
+
+	robotEditionString := os.Getenv("ORCH_ROBOT_EDITION")
+	var robotEdition uint64
+	if robotEditionString == "" {
+		robotEdition = 2 //default
+	} else {
+		robotEdition, err = strconv.ParseUint(robotEditionString, 10, 0)
+		if err != nil {
+			panic(fmt.Errorf("Error during Orch cfg loading: %v", err))
+		}
+	}
+	cfg.RobotEdition = uint(robotEdition)
 
 	return cfg
 }
@@ -109,5 +148,6 @@ func NewMailListenerServiceConfig(e *envLoader) *MailListenerServiceConfig {
 func NewRunnerServiceConfig(e *envLoader) *RunnerServiceConfig {
 	cfg := new(RunnerServiceConfig)
 	cfg.Kafka = NewKafkaConfig(e)
+	cfg.Orch = NewOrchConfig(e)
 	return cfg
 }

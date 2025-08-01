@@ -3,7 +3,7 @@ package mailclient
 import (
 	"log"
 
-	"github.com/NickVasky/MaTrOS/pkg/config"
+	"github.com/NickVasky/MaTrOS/shared/config"
 	"github.com/emersion/go-imap/v2"
 	"github.com/emersion/go-imap/v2/imapclient"
 )
