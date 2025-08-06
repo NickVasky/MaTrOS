@@ -6,8 +6,6 @@ import (
 	"os"
 	"strconv"
 	"time"
-
-	"github.com/joho/godotenv"
 )
 
 type MailListenerServiceConfig struct {
@@ -47,23 +45,7 @@ type OrchConfig struct {
 	RobotEdition uint
 }
 
-type envLoader struct {
-	dotEnvPaths []string
-}
-
-func NewEnvLoader(paths []string) *envLoader {
-	c := new(envLoader)
-	c.dotEnvPaths = paths
-
-	err := godotenv.Load(c.dotEnvPaths...)
-	if err != nil {
-		panic("Error loading .env file")
-	}
-
-	return c
-}
-
-func NewMailConfig(e *envLoader) *MailConfig {
+func NewMailConfig() *MailConfig {
 	cfg := new(MailConfig)
 
 	cfg.Host = os.Getenv("MAIL_HOST")
@@ -81,7 +63,7 @@ func NewMailConfig(e *envLoader) *MailConfig {
 	return cfg
 }
 
-func NewKafkaConfig(e *envLoader) *KafkaConfig {
+func NewKafkaConfig() *KafkaConfig {
 	cfg := new(KafkaConfig)
 
 	cfg.Host = os.Getenv("KAFKA_HOST")
@@ -91,7 +73,7 @@ func NewKafkaConfig(e *envLoader) *KafkaConfig {
 	return cfg
 }
 
-func NewRedisConfig(e *envLoader) *RedisConfig {
+func NewRedisConfig() *RedisConfig {
 	cfg := new(RedisConfig)
 
 	cfg.Host = os.Getenv("REDIS_HOST")
@@ -107,7 +89,7 @@ func NewRedisConfig(e *envLoader) *RedisConfig {
 	return cfg
 }
 
-func NewOrchConfig(e *envLoader) *OrchConfig {
+func NewOrchConfig() *OrchConfig {
 	cfg := new(OrchConfig)
 
 	hostString := os.Getenv("ORCH_HOST")
@@ -136,18 +118,18 @@ func NewOrchConfig(e *envLoader) *OrchConfig {
 	return cfg
 }
 
-func NewMailListenerServiceConfig(e *envLoader) *MailListenerServiceConfig {
+func NewMailListenerServiceConfig() *MailListenerServiceConfig {
 	cfg := new(MailListenerServiceConfig)
-	cfg.Kafka = NewKafkaConfig(e)
-	cfg.Mail = NewMailConfig(e)
-	cfg.Redis = NewRedisConfig(e)
+	cfg.Kafka = NewKafkaConfig()
+	cfg.Mail = NewMailConfig()
+	cfg.Redis = NewRedisConfig()
 
 	return cfg
 }
 
-func NewRunnerServiceConfig(e *envLoader) *RunnerServiceConfig {
+func NewRunnerServiceConfig() *RunnerServiceConfig {
 	cfg := new(RunnerServiceConfig)
-	cfg.Kafka = NewKafkaConfig(e)
-	cfg.Orch = NewOrchConfig(e)
+	cfg.Kafka = NewKafkaConfig()
+	cfg.Orch = NewOrchConfig()
 	return cfg
 }
