@@ -3,7 +3,7 @@ module github.com/NickVasky/MaTrOS/runner
 go 1.24.4
 
 require (
-	github.com/NickVasky/MaTrOS/shared v0.1.0
+	github.com/NickVasky/MaTrOS/shared v0.1.1
 	github.com/joho/godotenv v1.5.1
 	github.com/segmentio/kafka-go v0.4.48
 )

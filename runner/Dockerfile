@@ -9,10 +9,10 @@ RUN go mod download
 
 COPY . .
 
-RUN go build -o main ./cmd/app.go
+RUN go build -o runner ./cmd/main.go
 
-FROM alpine:3.21 AS go_run
+FROM alpine:3.22 AS go_run
 
 WORKDIR /usr/src/app
 
-COPY --from=go_build /usr/src/app/main .
+COPY --from=go_build /usr/src/app/runner .

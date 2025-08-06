@@ -11,8 +11,7 @@ import (
 )
 
 func main() {
-	el := config.NewEnvLoader([]string{})
-	cfg := config.NewRunnerServiceConfig(el)
+	cfg := config.NewRunnerServiceConfig()
 
 	kfk := queue.NewConsumer(cfg.Kafka)
 	api, err := client.NewBotApiClient(cfg.Orch)

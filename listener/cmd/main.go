@@ -12,8 +12,7 @@ import (
 )
 
 func main() {
-	el := config.NewEnvLoader([]string{})
-	cfg := config.NewMailListenerServiceConfig(el)
+	cfg := config.NewMailListenerServiceConfig()
 
 	kfk := queue.NewProducer(cfg.Kafka)
 

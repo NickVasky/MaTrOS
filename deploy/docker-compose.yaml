@@ -2,41 +2,123 @@ networks:
   matros_service_network:
     driver: bridge
 
+volumes:
+  kafka-persistence:
+  redis-persistence:
+
 services:
   kafka:
     image: bitnami/kafka:4.0
     networks:
       - matros_service_network
     volumes:
-      - ./kafka-persistence:/bitnami/kafka
+      - kafka-persistence:/bitnami/kafka
     environment:
-      - KAFKA_CFG_NODE_ID=0
-      - KAFKA_CFG_PROCESS_ROLES=controller,broker
-      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka:9093
-      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
-      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092,EXTERNAL://localhost:9094
-      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT
-      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
-    ports:
-      - 9094:9094
+      KAFKA_CFG_NODE_ID: 0
+      KAFKA_CFG_PROCESS_ROLES: controller,broker
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 0@kafka:9093
+      KAFKA_CFG_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "kafka-topics.sh",
+          "--bootstrap-server",
+          "localhost:9092",
+          "--list",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  kafka-init:
+    image: bitnami/kafka:4.0
+    networks:
+      - matros_service_network
+    environment:
+      KAFKA_TOPIC: ${KAFKA_TOPIC}
+      KAFKA_HOST: ${KAFKA_HOST}
+    command: ["/bin/bash", "-c", "/create_topic.sh"]
+    depends_on:
+      kafka:
+        condition: service_healthy
+    volumes:
+      - type: bind
+        source: ./create_topic.sh
+        target: /create_topic.sh
+    init: true
 
   kafdrop:
     image: obsidiandynamics/kafdrop
     ports:
       - "9000:9000"
     environment:
-      - KAFKA_BROKERCONNECT=kafka:9092
-      - SERVER_PORT=9000
+      KAFKA_BROKERCONNECT: ${KAFKA_HOST}
+      SERVER_PORT: 9000
     networks:
       - matros_service_network
+    depends_on:
+      kafka:
+        condition: service_healthy
 
-  rediska:
+  redis:
     image: bitnami/redis:latest
     networks:
       - matros_service_network
     volumes:
-      - ./redis-persistence:/bitnami/redis/data
+      - redis-persistence:/bitnami/redis/data
     environment:
-      - REDIS_PASSWORD=my_password
-    ports:
-      - 6379:6379
+      REDIS_PASSWORD: ${REDIS_PASS}
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  matros_listener:
+    build: ../listener/.
+    networks:
+      - matros_service_network
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    volumes:
+      - type: bind
+        source: ./triggers.yaml
+        target: /usr/src/app/triggers.yaml
+    command: ["sh", "-c", "./listener"]
+    environment:
+      MAIL_HOST: ${MAIL_HOST}
+      MAIL_USER: ${MAIL_USER}
+      MAIL_PASS: ${MAIL_PASS}
+      MAIL_FOLDER: ${MAIL_FOLDER}
+      MAIL_POLLING_INTERVAL_SEC: ${MAIL_POLLING_INTERVAL_SEC}
+      KAFKA_HOST: ${KAFKA_HOST}
+      KAFKA_TOPIC: ${KAFKA_TOPIC}
+      KAFKA_CONSUMER_GROUP: ${KAFKA_CONSUMER_GROUP}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_USER: ${REDIS_USER}
+      REDIS_PASS: ${REDIS_PASS}
+      REDIS_TTL_HOURS: ${REDIS_TTL_HOURS}
+
+  matros_runner:
+    build: ../runner/.
+    networks:
+      - matros_service_network
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+    command: ["sh", "-c", "./runner"]
+    environment:
+      KAFKA_HOST: ${KAFKA_HOST}
+      KAFKA_TOPIC: ${KAFKA_TOPIC}
+      KAFKA_CONSUMER_GROUP: ${KAFKA_CONSUMER_GROUP}
+      ORCH_HOST: ${ORCH_HOST}
+      ORCH_USER: ${ORCH_USER}
+      ORCH_PASS: ${ORCH_PASS}
+      ORCH_ROBOT_EDITION: ${ORCH_ROBOT_EDITION}

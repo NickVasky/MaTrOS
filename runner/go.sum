@@ -1,5 +1,5 @@
-github.com/NickVasky/MaTrOS/shared v0.1.0 h1:RcSg5l9wjvFpZkWmzh+hO2aXpCFr4LmJajnz7SBu7fE=
-github.com/NickVasky/MaTrOS/shared v0.1.0/go.mod h1:DjNpvh0rUeyASXYiuXYdqywHKp7WFX5nPTNQwWtNQA8=
+github.com/NickVasky/MaTrOS/shared v0.1.1 h1:BhO4qQ+IEVRhLy29gUoYXmiPkcmjgpBp9NCnPp4LAt4=
+github.com/NickVasky/MaTrOS/shared v0.1.1/go.mod h1:NuWar3egGDw3Rp056SLziFNnkMztpGj/8om3y4cio6w=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
